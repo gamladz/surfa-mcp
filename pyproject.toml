@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "surfa-mcp"
+version = "0.1.0"
+description = "MCP server for Surfa Analytics - Query your data with natural language"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Surfa Team", email = "support@surfa.dev"}
+]
+keywords = ["mcp", "analytics", "observability", "ai", "llm"]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "fastmcp>=0.4.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+surfa-mcp = "surfa_mcp.server:main"
+
+[project.urls]
+Homepage = "https://surfa.dev"
+Repository = "https://github.com/gamladz/surfa"
+Documentation = "https://docs.surfa.dev/mcp"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
