@@ -4,6 +4,7 @@ import asyncio
 from fastmcp import FastMCP
 from .config import get_settings
 from .api import SurfaAPIClient
+from .analytics import track_tool, flush_analytics
 from .tools import (
     get_analytics,
     get_analytics_tool,
@@ -31,7 +32,14 @@ def get_client() -> SurfaAPIClient:
     return _client
 
 
+@mcp.resource("health://status")
+def health_check() -> str:
+    """Health check endpoint for monitoring."""
+    return "OK"
+
+
 @mcp.tool()
+@track_tool("get_analytics")
 async def get_analytics_mcp() -> str:
     """Get high-level analytics metrics for your live traffic.
     
@@ -47,6 +55,7 @@ async def get_analytics_mcp() -> str:
 
 
 @mcp.tool()
+@track_tool("query_events")
 async def query_events_mcp(
     tool_name: str | None = None,
     min_latency: int | None = None,
@@ -89,6 +98,7 @@ async def query_events_mcp(
 
 
 @mcp.tool()
+@track_tool("find_highest_latency")
 async def find_highest_latency_mcp(
     time_range: str = "week",
     tool_name: str | None = None,
@@ -118,6 +128,7 @@ async def find_highest_latency_mcp(
 
 
 @mcp.tool()
+@track_tool("get_session")
 async def get_session_mcp(session_id: str) -> str:
     """Get detailed information about a specific session.
     
@@ -147,12 +158,27 @@ def main():
         settings = get_settings()
         print(f"✅ Surfa MCP Server starting...")
         print(f"   API URL: {settings.surfa_api_url}")
-        print(f"   API Key: {settings.surfa_api_key[:20]}...")
         
-        # Run the server
+        # Show mode
+        if settings.surfa_api_key:
+            print(f"   🔑 Mode: Single-tenant (API key: {settings.surfa_api_key[:20]}...)")
+        else:
+            print(f"   🔑 Mode: Multi-tenant (API key from client)")
+        
+        # Check if analytics is enabled
+        if settings.surfa_ingest_key:
+            print(f"   📊 Analytics: Enabled (dogfooding)")
+        else:
+            print(f"   📊 Analytics: Disabled (set SURFA_INGEST_KEY to enable)")
+        
+        # Run the server (fly mcp wrap will convert stdio to SSE)
         mcp.run()
+    except KeyboardInterrupt:
+        print("\n⏹️  Shutting down...")
+        flush_analytics()
     except Exception as e:
         print(f"❌ Failed to start Surfa MCP Server: {e}")
+        flush_analytics()
         raise
 
 

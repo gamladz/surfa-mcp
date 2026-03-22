@@ -1,0 +1,30 @@
+# Fly.io configuration for Surfa MCP Server
+app = "surfa-mcp"
+primary_region = "iad"  # US East (change to your preferred region)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  SURFA_API_URL = "https://surfa-web.vercel.app"
+  SURFA_TIMEOUT = "30"
+  FASTMCP_STATELESS_HTTP = "true"
+
+[http_service]
+  internal_port = 8080  # fly mcp wrap uses port 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "10s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/"  # MCP endpoint is at root
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

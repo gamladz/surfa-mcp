@@ -8,9 +8,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """MCP server settings loaded from environment variables."""
     
-    surfa_api_key: str = Field(
-        ...,
-        description="Surfa API key (sk_live_... or sk_test_...)",
+    surfa_api_key: str | None = Field(
+        default=None,
+        description="Surfa API key (sk_live_... or sk_test_...) - provided by client",
         validation_alias="SURFA_API_KEY",
     )
     
@@ -24,6 +24,12 @@ class Settings(BaseSettings):
         default=30,
         description="HTTP request timeout in seconds",
         validation_alias="SURFA_TIMEOUT",
+    )
+    
+    surfa_ingest_key: str | None = Field(
+        default=None,
+        description="Surfa Ingest API key for dogfooding (optional)",
+        validation_alias="SURFA_INGEST_KEY",
     )
     
     model_config = {
@@ -40,5 +46,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get validated settings instance."""
     settings = Settings()
-    settings.validate_api_key()
+    # Only validate if API key is provided (it's optional for multi-tenant)
+    if settings.surfa_api_key:
+        settings.validate_api_key()
     return settings

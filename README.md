@@ -39,7 +39,9 @@ SURFA_API_URL=https://surfa-web.vercel.app
 SURFA_TIMEOUT=30
 ```
 
-## Usage with Claude Desktop
+## Usage
+
+### Option 1: Local (Claude Desktop)
 
 Add to your `claude_desktop_config.json`:
 
@@ -62,6 +64,33 @@ Add to your `claude_desktop_config.json`:
   }
 }
 ```
+
+### Option 2: Remote (Hosted on Fly.io) - Multi-tenant
+
+The public Surfa MCP is deployed at `https://surfa-mcp.fly.dev` and supports multiple users.
+
+**Each user provides their own API key:**
+
+```json
+{
+  "mcpServers": {
+    "surfa": {
+      "url": "https://surfa-mcp.fly.dev",
+      "env": {
+        "SURFA_API_KEY": "sk_live_your_key_here"
+      }
+    }
+  }
+}
+```
+
+**Benefits:**
+- ✅ No deployment needed - use the public instance
+- ✅ Auto-scales - only runs when you use it
+- ✅ Secure - your API key stays on your machine
+- ✅ Dogfooded - all usage is tracked for analytics
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for deploying your own instance.
 
 Restart Claude Desktop and start querying your analytics!
 
@@ -139,6 +168,23 @@ The PM Agent can chain queries together:
 3. Get session details → investigates specific failure
 
 All responses are in JSON format for easy parsing by AI agents.
+
+## Dogfooding (Track Your Own MCP Usage)
+
+Want to see your own MCP server usage in Surfa? Enable analytics by adding your ingest key:
+
+```bash
+# Add to .env
+SURFA_INGEST_KEY=sk_live_your_ingest_key_here
+```
+
+This will track:
+- ✅ Tool calls (get_analytics, query_events, etc.)
+- ✅ Latency for each tool
+- ✅ Success/failure rates
+- ✅ Session analytics
+
+All tool calls will appear in your Surfa dashboard, letting you analyze your own MCP server performance!
 
 ## Development
 
