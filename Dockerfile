@@ -14,18 +14,13 @@ COPY src/ ./src/
 # Install the package and dependencies
 RUN uv pip install --system .
 
-# Install system dependencies for fly
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
-# Install flyctl
-RUN curl -L https://fly.io/install.sh | sh
-ENV PATH="/root/.fly/bin:${PATH}"
-
-# Expose port 8080 for Fly.io
-EXPOSE 8080
-
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PORT=3001
+ENV HOST=0.0.0.0
 
-# Use fly mcp wrap to convert stdio MCP to SSE
-CMD ["fly", "mcp", "wrap", "--", "python", "-m", "surfa_mcp.server"]
+# Expose port 3001 for HTTP/SSE
+EXPOSE 3001
+
+# Run FastMCP in HTTP/SSE mode (Streamable HTTP compatible)
+CMD ["python", "-m", "surfa_mcp.server"]

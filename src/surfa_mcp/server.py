@@ -171,8 +171,16 @@ def main():
         else:
             print(f"   📊 Analytics: Disabled (set SURFA_INGEST_KEY to enable)")
         
-        # Run the server (fly mcp wrap will convert stdio to SSE)
-        mcp.run()
+        # Run the server in HTTP mode for remote access
+        import os
+        port = int(os.getenv("PORT", "3001"))
+        host = os.getenv("HOST", "0.0.0.0")
+        
+        print(f"   🌐 Starting HTTP server on {host}:{port}")
+        print(f"   📡 Endpoint: http://{host}:{port}/mcp")
+        
+        # Run with HTTP transport (Streamable HTTP)
+        mcp.run(transport="http", host=host, port=port)
     except KeyboardInterrupt:
         print("\n⏹️  Shutting down...")
         flush_analytics()
