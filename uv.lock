@@ -1512,14 +1512,14 @@ wheels = [
 
 [[package]]
 name = "surfa-ingest"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/22/27/cf7b1a1b9744535e5c7dd46322cbf39e4938c1cb87bb17f2a76a7abaaf24/surfa_ingest-0.2.0.tar.gz", hash = "sha256:2456569e01192495f23fa9c341bed27b77de3f01e2252a5c735b350ac1eea0ad", size = 18204, upload-time = "2026-02-22T21:55:52.228Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/e2/f659465cddaeb9fa31eb8f79fe171d90fe760fbe0e7fd4a52f09b8fa42b5/surfa_ingest-0.3.0.tar.gz", hash = "sha256:663e21dab8d2f6dfe7bb065f366a27abb2639b9fac7f8bdcfdbb1b2411d50d6a", size = 33271, upload-time = "2026-10-14T09:29:57.986Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/b7/0d4d8eee8571fbb9e4f4d09028d22efbfeb54c2258c1843971909948d589/surfa_ingest-0.2.0-py3-none-any.whl", hash = "sha256:dd13cdfd5f236e56d69486db5c83df092242e798a18b34ca9125856228cf48e8", size = 15412, upload-time = "2026-02-22T21:55:50.628Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/69/f274543f78fd23b27cb043a062989e9da4b6a6a7694e0705d668bc2961fe/surfa_ingest-0.3.0-py3-none-any.whl", hash = "sha256:2599b5c2cf79eebc15d53f871e79ab96031eca42519e8460dd2b5e3a4b3f9bde", size = 28452, upload-time = "2026-10-14T09:29:59.286Z" },
 ]
 
 [[package]]
@@ -1554,7 +1554,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "surfa-ingest", specifier = ">=0.1.0" },
+    { name = "surfa-ingest", specifier = ">=0.3.0" },
 ]
 provides-extras = ["dev"]
 
