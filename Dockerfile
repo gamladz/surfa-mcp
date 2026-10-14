@@ -8,11 +8,14 @@ WORKDIR /app
 RUN pip install uv
 
 # Copy dependency files and source code
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
 
-# Install the package and dependencies
-RUN uv pip install --system .
+# Install the exact versions in uv.lock (never resolve fresh at build time:
+# an unpinned build pulls new major versions of fastmcp/mcp), then the package
+RUN uv export --frozen --no-dev --no-emit-project -o requirements.txt \
+    && uv pip install --system -r requirements.txt \
+    && uv pip install --system --no-deps .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

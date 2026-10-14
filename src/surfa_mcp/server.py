@@ -4,7 +4,7 @@ import asyncio
 from fastmcp import FastMCP
 from .config import get_settings
 from .api import SurfaAPIClient
-from .analytics import track_tool, flush_analytics
+from surfa_ingest import with_surfa
 from .tools import (
     get_analytics,
     get_analytics_tool,
@@ -47,7 +47,6 @@ def health_check() -> str:
 
 
 @mcp.tool()
-@track_tool("get_analytics")
 async def get_analytics_mcp() -> str:
     """Get high-level analytics metrics for your live traffic.
     
@@ -63,7 +62,6 @@ async def get_analytics_mcp() -> str:
 
 
 @mcp.tool()
-@track_tool("query_events")
 async def query_events_mcp(
     tool_name: str | None = None,
     min_latency: int | None = None,
@@ -106,7 +104,6 @@ async def query_events_mcp(
 
 
 @mcp.tool()
-@track_tool("find_highest_latency")
 async def find_highest_latency_mcp(
     time_range: str = "week",
     tool_name: str | None = None,
@@ -136,7 +133,6 @@ async def find_highest_latency_mcp(
 
 
 @mcp.tool()
-@track_tool("get_session")
 async def get_session_mcp(session_id: str) -> str:
     """Get detailed information about a specific session.
     
@@ -160,7 +156,6 @@ async def get_session_mcp(session_id: str) -> str:
 
 
 @mcp.tool()
-@track_tool("find_redundant_executions")
 async def find_redundant_executions_mcp(
     time_range: str = "week",
     min_redundancy: float = 0.3,
@@ -186,7 +181,6 @@ async def find_redundant_executions_mcp(
 
 
 @mcp.tool()
-@track_tool("find_batch_opportunities")
 async def find_batch_opportunities_mcp(
     time_range: str = "week",
     min_call_count: int = 3,
@@ -212,7 +206,6 @@ async def find_batch_opportunities_mcp(
 
 
 @mcp.tool()
-@track_tool("get_tool_insights")
 async def get_tool_insights_mcp(
     tool_name: str,
     time_range: str = "week",
@@ -235,7 +228,6 @@ async def get_tool_insights_mcp(
 
 
 @mcp.tool()
-@track_tool("get_execution_metrics")
 async def get_execution_metrics_mcp(execution_id: str) -> str:
     """Get detailed metrics for a specific execution.
     
@@ -264,8 +256,9 @@ def main():
         else:
             print(f"   🔑 Mode: Multi-tenant (API key from client)")
         
-        # Check if analytics is enabled
+        # Dogfooding: send this server's own tool calls to Surfa
         if settings.surfa_ingest_key:
+            with_surfa(mcp, api_key=settings.surfa_ingest_key, api_url=settings.surfa_api_url)
             print(f"   📊 Analytics: Enabled (dogfooding)")
         else:
             print(f"   📊 Analytics: Disabled (set SURFA_INGEST_KEY to enable)")
@@ -288,10 +281,8 @@ def main():
             mcp.run()
     except KeyboardInterrupt:
         print("\n⏹️  Shutting down...")
-        flush_analytics()
     except Exception as e:
         print(f"❌ Failed to start Surfa MCP Server: {e}")
-        flush_analytics()
         raise
 
 
