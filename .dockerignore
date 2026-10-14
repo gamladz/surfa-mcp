@@ -35,5 +35,4 @@ LICENSE
 *.md
 
 # Misc
-uv.lock
 test_*.py
