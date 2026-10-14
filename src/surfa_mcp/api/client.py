@@ -90,3 +90,99 @@ class SurfaAPIClient:
                 raise Exception(data.get("error", "Unknown error"))
             
             return data["data"]
+    
+    async def find_redundant_executions(
+        self,
+        time_range: str = "week",
+        min_redundancy: float = 0.3,
+        limit: int = 20,
+    ) -> Dict[str, Any]:
+        """Find executions with redundant tool calls."""
+        params = {
+            "time_range": time_range,
+            "min_redundancy": str(min_redundancy),
+            "limit": str(limit),
+        }
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_url}/api/v1/mcp/analytics/redundancy",
+                headers=self.headers,
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get("ok"):
+                raise Exception(data.get("error", "Unknown error"))
+            
+            return data["data"]
+    
+    async def find_batch_opportunities(
+        self,
+        time_range: str = "week",
+        min_call_count: int = 3,
+        limit: int = 20,
+    ) -> Dict[str, Any]:
+        """Find tools with batch opportunities."""
+        params = {
+            "time_range": time_range,
+            "min_call_count": str(min_call_count),
+            "limit": str(limit),
+        }
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_url}/api/v1/mcp/analytics/batch-opportunities",
+                headers=self.headers,
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get("ok"):
+                raise Exception(data.get("error", "Unknown error"))
+            
+            return data["data"]
+    
+    async def get_tool_insights(
+        self,
+        tool_name: str,
+        time_range: str = "week",
+    ) -> Dict[str, Any]:
+        """Get performance insights for a specific tool."""
+        params = {
+            "time_range": time_range,
+        }
+        
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_url}/api/v1/mcp/analytics/tools/{tool_name}",
+                headers=self.headers,
+                params=params,
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get("ok"):
+                raise Exception(data.get("error", "Unknown error"))
+            
+            return data["data"]
+    
+    async def get_execution_metrics(
+        self,
+        execution_id: str,
+    ) -> Dict[str, Any]:
+        """Get detailed metrics for a specific execution."""
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.api_url}/api/v1/mcp/analytics/executions/{execution_id}",
+                headers=self.headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data.get("ok"):
+                raise Exception(data.get("error", "Unknown error"))
+            
+            return data["data"]

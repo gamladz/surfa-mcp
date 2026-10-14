@@ -14,6 +14,14 @@ from .tools import (
     find_highest_latency_tool,
     get_session,
     get_session_tool,
+    find_redundant_executions,
+    find_redundant_executions_tool,
+    find_batch_opportunities,
+    find_batch_opportunities_tool,
+    get_tool_insights,
+    get_tool_insights_tool,
+    get_execution_metrics,
+    get_execution_metrics_tool,
 )
 
 # Initialize FastMCP server
@@ -151,6 +159,97 @@ async def get_session_mcp(session_id: str) -> str:
     return result[0].text
 
 
+@mcp.tool()
+@track_tool("find_redundant_executions")
+async def find_redundant_executions_mcp(
+    time_range: str = "week",
+    min_redundancy: float = 0.3,
+    limit: int = 20,
+) -> str:
+    """Find executions with redundant tool calls.
+    
+    Args:
+        time_range: Time range to analyze (hour, day, week, month)
+        min_redundancy: Minimum redundancy score (0.0-1.0)
+        limit: Maximum number of results
+    
+    Returns JSON with executions sorted by redundancy score and potential savings.
+    """
+    client = get_client()
+    arguments = {
+        "time_range": time_range,
+        "min_redundancy": min_redundancy,
+        "limit": limit,
+    }
+    result = await find_redundant_executions(arguments, client)
+    return result[0].text
+
+
+@mcp.tool()
+@track_tool("find_batch_opportunities")
+async def find_batch_opportunities_mcp(
+    time_range: str = "week",
+    min_call_count: int = 3,
+    limit: int = 20,
+) -> str:
+    """Find tools with batch opportunities.
+    
+    Args:
+        time_range: Time range to analyze (hour, day, week, month)
+        min_call_count: Minimum calls per execution to consider
+        limit: Maximum number of results
+    
+    Returns JSON with tools sorted by potential savings from batching.
+    """
+    client = get_client()
+    arguments = {
+        "time_range": time_range,
+        "min_call_count": min_call_count,
+        "limit": limit,
+    }
+    result = await find_batch_opportunities(arguments, client)
+    return result[0].text
+
+
+@mcp.tool()
+@track_tool("get_tool_insights")
+async def get_tool_insights_mcp(
+    tool_name: str,
+    time_range: str = "week",
+) -> str:
+    """Get performance insights for a specific tool.
+    
+    Args:
+        tool_name: Name of the tool to analyze
+        time_range: Time range to analyze (hour, day, week, month)
+    
+    Returns JSON with usage, redundancy, latency, and batch potential analysis.
+    """
+    client = get_client()
+    arguments = {
+        "tool_name": tool_name,
+        "time_range": time_range,
+    }
+    result = await get_tool_insights(arguments, client)
+    return result[0].text
+
+
+@mcp.tool()
+@track_tool("get_execution_metrics")
+async def get_execution_metrics_mcp(execution_id: str) -> str:
+    """Get detailed metrics for a specific execution.
+    
+    Args:
+        execution_id: The execution ID to retrieve metrics for
+    
+    Returns JSON with V2 metrics including redundancy, batch opportunities, and latency.
+    """
+    client = get_client()
+    arguments = {"execution_id": execution_id}
+    result = await get_execution_metrics(arguments, client)
+    return result[0].text
+
+
 def main():
     """Main entry point for the MCP server."""
     try:
@@ -171,16 +270,22 @@ def main():
         else:
             print(f"   📊 Analytics: Disabled (set SURFA_INGEST_KEY to enable)")
         
-        # Run the server in HTTP mode for remote access
+        # Run the server
+        # Use HTTP transport if PORT is set (for remote deployment)
+        # Otherwise use stdio (for local/Claude Desktop)
         import os
-        port = int(os.getenv("PORT", "3001"))
-        host = os.getenv("HOST", "0.0.0.0")
+        port = os.getenv("PORT")
         
-        print(f"   🌐 Starting HTTP server on {host}:{port}")
-        print(f"   📡 Endpoint: http://{host}:{port}/mcp")
-        
-        # Run with HTTP transport (Streamable HTTP)
-        mcp.run(transport="http", host=host, port=port)
+        if port:
+            # HTTP mode for remote deployment
+            host = os.getenv("HOST", "0.0.0.0")
+            print(f"   🌐 Starting HTTP server on {host}:{port}")
+            print(f"   📡 Endpoint: http://{host}:{port}/mcp")
+            mcp.run(transport="http", host=host, port=int(port))
+        else:
+            # stdio mode for local/Claude Desktop
+            print(f"   🖥️  Starting stdio server (for Claude Desktop)")
+            mcp.run()
     except KeyboardInterrupt:
         print("\n⏹️  Shutting down...")
         flush_analytics()

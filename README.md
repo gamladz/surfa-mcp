@@ -19,6 +19,8 @@ Perfect for Product Managers, DevOps teams, and anyone building with MCPs.
 - 📊 **Analytics Metrics** - Get high-level metrics (sessions, success rate, latency)
 - ⚡ **Performance Analysis** - Find highest latency queries
 - 🔎 **Session Deep-Dive** - Investigate specific sessions in detail
+- 💰 **Cost Optimization** - Identify redundant calls and batch opportunities with cost estimates
+- 🎯 **Tool Insights** - Analyze individual tool performance and optimization potential
 - 🤖 **PM Agent Ready** - JSON responses optimized for AI agent consumption
 - 🔗 **Multi-Query Workflows** - Chain queries together for complex analysis
 
@@ -96,7 +98,9 @@ Restart Claude Desktop and start querying your analytics!
 
 ## Available Tools
 
-### 1. `get_analytics`
+### Core Analytics (4 tools)
+
+#### 1. `get_analytics`
 Get high-level analytics metrics.
 
 **Example:**
@@ -117,7 +121,7 @@ Get high-level analytics metrics.
 }
 ```
 
-### 2. `query_events`
+#### 2. `query_events`
 Query events with filters.
 
 **Example:**
@@ -134,7 +138,7 @@ Query events with filters.
 - `status` - Event status (success, error)
 - `limit` - Max results (default: 100)
 
-### 3. `find_highest_latency`
+#### 3. `find_highest_latency`
 Find slowest queries in a time range.
 
 **Example:**
@@ -147,7 +151,7 @@ Find slowest queries in a time range.
 - `tool_name` - Optional: filter by tool
 - `limit` - Number of results (default: 10)
 
-### 4. `get_session`
+#### 4. `get_session`
 Get detailed session information.
 
 **Example:**
@@ -158,16 +162,188 @@ Get detailed session information.
 **Parameters:**
 - `session_id` - The session ID to retrieve
 
+---
+
+### V2 Analytics - Cost Optimization (4 tools)
+
+#### 5. `find_redundant_executions`
+Find executions with redundant tool calls that waste tokens and costs.
+
+**Example:**
+```
+"Which sessions have redundant tool calls?"
+"Show me executions wasting the most money on duplicate calls"
+```
+
+**Parameters:**
+- `time_range` - hour, day, week, or month (default: week)
+- `min_redundancy` - Minimum redundancy score 0.0-1.0 (default: 0.3)
+- `limit` - Max results (default: 20)
+
+**Returns:**
+```json
+{
+  "ok": true,
+  "data": {
+    "total_found": 20,
+    "total_potential_savings": {
+      "calls_saved": 327,
+      "tokens_estimated": 49050,
+      "cost_usd": {
+        "gpt_4_turbo": 0.00049,
+        "claude_sonnet": 0.00015
+      }
+    },
+    "executions": [...]
+  }
+}
+```
+
+#### 6. `find_batch_opportunities`
+Find tools that are called multiple times per session and could benefit from batch endpoints.
+
+**Example:**
+```
+"Which tools should I add batch endpoints for?"
+"What's my biggest batching opportunity?"
+```
+
+**Parameters:**
+- `time_range` - hour, day, week, or month (default: week)
+- `min_call_count` - Minimum calls per execution (default: 3)
+- `limit` - Max results (default: 20)
+
+**Returns:**
+```json
+{
+  "ok": true,
+  "data": {
+    "total_opportunities": 5,
+    "opportunities": [
+      {
+        "tool_name": "get_user",
+        "execution_count": 15,
+        "total_calls": 78,
+        "potential_savings": {
+          "calls_saved": 63,
+          "tokens_estimated": 9450,
+          "cost_usd": {...}
+        },
+        "recommendation": "Add batch_get_user endpoint accepting array of inputs"
+      }
+    ]
+  }
+}
+```
+
+#### 7. `get_tool_insights`
+Get comprehensive performance insights for a specific tool.
+
+**Example:**
+```
+"How is get_user performing?"
+"Analyze the search_database tool"
+```
+
+**Parameters:**
+- `tool_name` - Name of the tool to analyze (required)
+- `time_range` - hour, day, week, or month (default: week)
+
+**Returns:**
+```json
+{
+  "ok": true,
+  "data": {
+    "tool_name": "get_user",
+    "usage": {
+      "execution_count": 45,
+      "total_calls": 120,
+      "avg_calls_per_execution": 2.7
+    },
+    "redundancy": {
+      "avg_redundancy_rate": 0.25,
+      "potential_savings": {...}
+    },
+    "latency": {
+      "mean_ms": 245,
+      "p95_ms": 890,
+      "max_ms": 1200
+    },
+    "batch_potential": {...},
+    "recommendations": [
+      "Consider caching: 25% of calls are redundant",
+      "Batch potential: 15 executions make multiple calls"
+    ]
+  }
+}
+```
+
+#### 8. `get_execution_metrics`
+Get detailed V2 metrics for a specific execution (enhanced version of `get_session`).
+
+**Example:**
+```
+"Show me everything about execution abc123"
+"Debug execution xyz789 with full metrics"
+```
+
+**Parameters:**
+- `execution_id` - The execution ID to retrieve (required)
+
+**Returns:**
+```json
+{
+  "ok": true,
+  "data": {
+    "execution_id": "abc123",
+    "session_outcome": "complete",
+    "metrics_v2": {
+      "redundancy": {
+        "score": 0.45,
+        "redundant_calls": 12,
+        "potential_savings": {...}
+      },
+      "batch_opportunities": [...],
+      "latency": {
+        "mean_ms": 340,
+        "slowest_tool": "search_database"
+      }
+    },
+    "total_optimization_potential": {
+      "calls_saved": 15,
+      "tokens_estimated": 2250,
+      "cost_usd": {...}
+    }
+  }
+}
+```
+
 ## Multi-Query Workflows
 
 The PM Agent can chain queries together:
 
-**Example workflow:**
+**Example workflow - Debugging:**
 1. Get analytics → sees low success rate
 2. Query events with `status=error` → finds errors
 3. Get session details → investigates specific failure
 
-All responses are in JSON format for easy parsing by AI agents.
+**Example workflow - Cost Optimization:**
+1. Find redundant executions → identifies wasteful sessions
+2. Get execution metrics for worst offender → deep dive into redundancy
+3. Get tool insights for most redundant tool → analyze optimization potential
+4. Compare redundancy vs batching savings → prioritize optimizations
+
+**Example cost analysis queries:**
+```
+"Which sessions have redundant tool calls?"
+"Show me the biggest batching opportunity"
+"How much money could I save by optimizing?"
+"Compare GPT-4 vs Claude Sonnet costs for my workload"
+"What's my total optimization potential across all opportunities?"
+"Should I focus on reducing redundancy or adding batch endpoints?"
+```
+
+All responses are in JSON format with multi-model cost estimates for easy parsing by AI agents.
 
 ## Dogfooding (Track Your Own MCP Usage)
 

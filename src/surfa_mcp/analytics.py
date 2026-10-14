@@ -84,6 +84,9 @@ def track_tool(tool_name: str):
                     latency_ms=latency_ms
                 )
                 
+                # Flush immediately for dogfooding (so events appear right away)
+                analytics.flush()
+                
                 return result
                 
             except Exception as e:
@@ -95,6 +98,10 @@ def track_tool(tool_name: str):
                     error=str(e),
                     latency_ms=latency_ms
                 )
+                
+                # Flush immediately for dogfooding
+                analytics.flush()
+                
                 raise
         
         return wrapper
