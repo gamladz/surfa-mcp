@@ -60,3 +60,48 @@ def test_read_only_key_gets_surfas_message(api):
     result = call("preview_description_change", ARGS, key=READ_KEY)
     assert result["isError"] is True
     assert text(result) == READ_ONLY_MESSAGE
+
+
+@pytest.fixture
+def tool_api(monkeypatch):
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/api/v1/mcp/tool-checks":
+            body = json.loads(request.content)
+            if body.get("confirm_token"):
+                return httpx.Response(200, json={"ok": True, "data": {"findability": {"status": "completed", "findable": True}}})
+            return httpx.Response(200, json={"ok": True, "data": {"lint": {"passes": True}, "findability": {"status": "needs_confirmation", "confirm_token": "ct_x"}}})
+        if request.url.path == "/api/v1/mcp/tool-checks/c1":
+            return httpx.Response(200, json={"ok": True, "data": {"findability": {"status": "completed"}}})
+        if request.url.path == "/api/v1/mcp/tool-checks/missing":
+            return httpx.Response(404, json={"ok": False, "error": "No check with that id in this workspace. Check ids come from check_tool_definition."})
+        return httpx.Response(404, json={"ok": False, "error": "nope"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(api_client.httpx, "AsyncClient", lambda *a, **k: real(*a, transport=httpx.MockTransport(handler), **k))
+    monkeypatch.setenv("PORT", "3001")
+    return seen
+
+
+DRAFT = {"server_id": "s1", "name": "list_unpaid_invoices", "description": "List unpaid invoices.", "input_schema": {"type": "object", "properties": {}}}
+
+
+def test_check_tool_definition_sends_the_draft(tool_api):
+    result = json.loads(text(call("check_tool_definition", DRAFT)))
+    assert result["findability"]["confirm_token"] == "ct_x"
+    assert json.loads(tool_api[-1].content) == {k: v for k, v in DRAFT.items()}
+
+
+def test_check_tool_definition_with_token(tool_api):
+    result = json.loads(text(call("check_tool_definition", {**DRAFT, "confirm_token": "ct_x"})))
+    assert result["findability"]["findable"] is True
+    assert json.loads(tool_api[-1].content)["confirm_token"] == "ct_x"
+
+
+def test_check_id_fetches_a_running_check(tool_api):
+    assert json.loads(text(call("check_tool_definition", {**DRAFT, "check_id": "c1"})))["findability"]["status"] == "completed"
+    assert tool_api[-1].method == "GET"
+    result = call("check_tool_definition", {**DRAFT, "check_id": "missing"})
+    assert result["isError"] is True and "check_tool_definition" in text(result)

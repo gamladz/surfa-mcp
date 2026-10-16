@@ -371,6 +371,30 @@ async def get_preview(
     return await _call_api(lambda client: client.get_preview(preview_id))
 
 
+@mcp.tool()
+async def check_tool_definition(
+    server_id: Annotated[str, Field(description="The server the tool is for; an id from list_servers.")],
+    name: Annotated[str, Field(description="The draft tool's name, e.g. 'list_unpaid_invoices'. An existing tool's name checks a revision of it.")],
+    description: Annotated[str | None, Field(description="The draft tool's description, as agents will see it.")] = None,
+    input_schema: Annotated[dict | None, Field(description="The draft's input JSON Schema, e.g. {\"type\": \"object\", \"properties\": {...}}.")] = None,
+    confirm_token: Annotated[str | None, Field(description="Leave empty at first. To also check findability, pass the confirm_token the first call returned, with the same other arguments.")] = None,
+    check_id: Annotated[str | None, Field(description="Only to fetch a findability check an earlier call said was still running; other arguments are then ignored.")] = None,
+) -> str:
+    """I'm adding or changing a tool: will agents find it, or confuse it with my other tools?
+
+    Checks a draft tool definition against the server's existing tools, without calling the
+    server. Free and instant: lint (vague text, undocumented parameters, missing enums or
+    formats, duplicates of or overlaps with existing tools) and token cost. Findability
+    (which user requests would reach it, and which existing tool agents would pick instead)
+    uses a few credits, so it's two-step: the first call returns a confirm_token and the
+    estimate; show it to the user and, if they agree, call again with the token.
+    Findability needs a read-write API key.
+    """
+    if check_id:
+        return await _call_api(lambda client: client.get_tool_check(check_id))
+    return await _call_api(lambda client: client.check_tool_definition(server_id, name, description, input_schema, confirm_token))
+
+
 def main():
     """Main entry point for the MCP server."""
     try:
