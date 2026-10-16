@@ -280,3 +280,23 @@ class SurfaAPIClient:
     async def get_preview(self, preview_id: str) -> Dict[str, Any]:
         """A preview's progress, then its before/after."""
         return await self._get_data(f"/api/v1/mcp/previews/{quote(preview_id, safe='')}")
+
+    async def check_tool_definition(
+        self,
+        server_id: str,
+        name: str,
+        description: Optional[str],
+        input_schema: Optional[Dict[str, Any]],
+        confirm_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Lint + token cost of a draft tool; findability with a confirm token."""
+        body: Dict[str, Any] = {"server_id": server_id, "name": name, "description": description}
+        if input_schema is not None:
+            body["input_schema"] = input_schema
+        if confirm_token:
+            body["confirm_token"] = confirm_token
+        return await self._post_data("/api/v1/mcp/tool-checks", body)
+
+    async def get_tool_check(self, check_id: str) -> Dict[str, Any]:
+        """A findability check that was still running."""
+        return await self._get_data(f"/api/v1/mcp/tool-checks/{quote(check_id, safe='')}")

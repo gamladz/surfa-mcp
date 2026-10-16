@@ -117,7 +117,7 @@ def test_new_tools_document_every_parameter():
     import asyncio
 
     tools = {t.name: t for t in asyncio.run(server.mcp.list_tools())}
-    for name in ("list_servers", "list_findings", "get_finding", "preview_description_change", "get_preview"):
+    for name in ("list_servers", "list_findings", "get_finding", "preview_description_change", "get_preview", "check_tool_definition"):
         for param, schema in tools[name].parameters.get("properties", {}).items():
             assert schema.get("description"), f"{name}.{param} has no description"
     assert len(tools) <= 15  # PLAN §3c rule 1
