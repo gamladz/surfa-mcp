@@ -5,21 +5,36 @@ from typing import Any, Dict, List, Optional
 from ..config.settings import Settings
 
 
+class SurfaAuthError(Exception):
+    """Surfa rejected the API key."""
+
+
+async def _check_auth(response: httpx.Response) -> None:
+    if response.status_code in (401, 403):
+        raise SurfaAuthError(
+            "Surfa didn't accept this API key (it may be revoked or mistyped). "
+            "Check the key in your MCP client's config, or create a new one in Surfa → Settings → API keys."
+        )
+
+
 class SurfaAPIClient:
-    """Client for making requests to Surfa API."""
+    """Client for making requests to Surfa API, as one workspace (its API key)."""
     
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, api_key: str | None = None):
         self.api_url = settings.surfa_api_url.rstrip('/')
-        self.api_key = settings.surfa_api_key
+        self.api_key = api_key or settings.surfa_api_key
         self.timeout = settings.timeout
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+
+    def _http(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(timeout=self.timeout, event_hooks={"response": [_check_auth]})
     
     async def get_analytics_metrics(self) -> Dict[str, Any]:
         """Get high-level analytics metrics."""
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/metrics",
                 headers=self.headers,
@@ -62,7 +77,7 @@ class SurfaAPIClient:
             params["status"] = status
         params["limit"] = str(limit)
         
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/events",
                 headers=self.headers,
@@ -78,7 +93,7 @@ class SurfaAPIClient:
     
     async def get_session(self, session_id: str) -> Dict[str, Any]:
         """Get session details."""
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/sessions/{session_id}",
                 headers=self.headers,
@@ -104,7 +119,7 @@ class SurfaAPIClient:
             "limit": str(limit),
         }
         
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/redundancy",
                 headers=self.headers,
@@ -131,7 +146,7 @@ class SurfaAPIClient:
             "limit": str(limit),
         }
         
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/batch-opportunities",
                 headers=self.headers,
@@ -155,7 +170,7 @@ class SurfaAPIClient:
             "time_range": time_range,
         }
         
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/tools/{tool_name}",
                 headers=self.headers,
@@ -174,7 +189,7 @@ class SurfaAPIClient:
         execution_id: str,
     ) -> Dict[str, Any]:
         """Get detailed metrics for a specific execution."""
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with self._http() as client:
             response = await client.get(
                 f"{self.api_url}/api/v1/mcp/analytics/executions/{execution_id}",
                 headers=self.headers,
