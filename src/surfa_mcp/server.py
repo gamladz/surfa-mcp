@@ -300,100 +300,70 @@ async def _call_api(call):
 
 @mcp.tool()
 async def list_servers() -> str:
-    """List the MCP servers saved in your Surfa workspace.
-
-    Use this first to get server ids for list_findings. Each server has its endpoints
-    (with tool count and the latest audit), finding counts by severity, and a dashboard link.
-    """
+    """List the MCP servers in your Surfa workspace, with ids for list_findings, finding counts and latest audit."""
     return await _call_api(lambda client: client.list_servers())
 
 
 @mcp.tool()
 async def list_findings(
-    server_id: Annotated[str | None, Field(description="Only this server's findings; an id from list_servers. Omit for all servers.")] = None,
-    severity: Annotated[Literal["high", "medium", "low"] | None, Field(description="Only findings of this severity.")] = None,
-    tool: Annotated[str | None, Field(description="Only findings about this tool name of your server, e.g. 'search_orders'.")] = None,
-    limit: Annotated[int, Field(ge=1, le=100, description="How many findings to return (1-100).")] = 20,
-    offset: Annotated[int, Field(ge=0, description="Where to start; pass next_offset from the previous page.")] = 0,
+    server_id: Annotated[str | None, Field(description="Server id from list_servers; omit for all.")] = None,
+    severity: Annotated[Literal["high", "medium", "low"] | None, Field(description="Only this severity.")] = None,
+    tool: Annotated[str | None, Field(description="Only findings about this tool.")] = None,
+    limit: Annotated[int, Field(ge=1, le=100, description="Page size.")] = 20,
+    offset: Annotated[int, Field(ge=0, description="next_offset from the previous page.")] = 0,
 ) -> str:
-    """What's wrong with my MCP server? Ranked problems Surfa found, most severe first.
-
-    Findings come from the server's latest Surfa audit: tools agents can't find or chain,
-    vague descriptions, undocumented parameters, heavy responses, failing test scenarios.
-    Starts with a summary (counts, servers not audited yet). Each finding has an id for
-    get_finding, which gives the evidence and any proposed or proven fix.
-    """
+    """What's wrong with my MCP server? Problems from its latest Surfa audit, most severe first (ids for get_finding)."""
     return await _call_api(lambda client: client.list_findings(server_id, severity, tool, limit, offset))
 
 
 @mcp.tool()
 async def get_finding(
-    finding_id: Annotated[str, Field(description="A finding id from list_findings, e.g. '3f2a…:0'.")],
+    finding_id: Annotated[str, Field(description="Id from list_findings.")],
 ) -> str:
-    """Explain one finding: the evidence behind it and how to fix it.
-
-    Returns the problem, the suggestion, evidence from the audit (token costs, a sample
-    call, which user requests failed to find the tool, failing scenarios per model) and
-    any fixes Surfa wrote for it: before/after text, status (proposed or proven) and the
-    proof-by-rerun results. A code note says when the real fix is in code, not text.
-    """
+    """Explain one finding: evidence, suggestion, and any fix Surfa proposed or proved (before/after)."""
     return await _call_api(lambda client: client.get_finding(finding_id))
 
 
 @mcp.tool()
 async def preview_description_change(
-    server_id: Annotated[str, Field(description="The server the tool belongs to; an id from list_servers.")],
-    tool: Annotated[str, Field(description="The name of the tool whose description you changed, as the server exposes it.")],
-    new_description: Annotated[str, Field(description="The full new description text for that tool.")],
-    confirm_token: Annotated[str | None, Field(description="Leave empty the first time. To run it, pass the confirm_token the first call returned, with the same other arguments.")] = None,
+    server_id: Annotated[str, Field(description="Server id from list_servers.")],
+    tool: Annotated[str, Field(description="Name of the tool you rewrote.")],
+    new_description: Annotated[str, Field(description="The full new description.")],
+    confirm_token: Annotated[str | None, Field(description="Omit first; then the token the first call returned.")] = None,
 ) -> str:
-    """Is my rewritten tool description better? Prove it before you deploy.
+    """Is my rewritten tool description better? Reruns the server's tests with and without it, before you deploy.
 
-    Reruns the server's saved tests against the deployed server twice: as deployed, and
-    with your new description shown to the model instead (the server is never changed).
-    Spends credits, so it takes two calls: the first returns the plan, an estimate and a
-    confirm_token, and spends nothing; show the estimate to the user, and only if they
-    agree call again with the token. The second call starts the runs and returns a
-    preview_id for get_preview. Needs a read-write API key.
+    Spends credits: the first call only returns an estimate and confirm_token. Ask the user
+    before calling again with it. Then poll get_preview. Needs a read-write key.
     """
     return await _call_api(lambda client: client.preview_description_change(server_id, tool, new_description, confirm_token))
 
 
 @mcp.tool()
 async def get_preview(
-    preview_id: Annotated[str, Field(description="The preview_id preview_description_change returned.")],
+    preview_id: Annotated[str, Field(description="From preview_description_change.")],
 ) -> str:
-    """Before/after for a description preview: pass rate, tool calls, tokens and a verdict.
-
-    While the runs are going it returns progress (they usually take a few minutes; check
-    again in a minute). When done: proven, not_proven or worse, with per-test results.
-    """
+    """Progress, then the before/after verdict of a description preview."""
     return await _call_api(lambda client: client.get_preview(preview_id))
 
 
 @mcp.tool()
 async def check_tool_definition(
-    server_id: Annotated[str, Field(description="The server the tool is for; an id from list_servers.")],
-    name: Annotated[str, Field(description="The draft tool's name, e.g. 'list_unpaid_invoices'. An existing tool's name checks a revision of it.")],
-    description: Annotated[str | None, Field(description="The draft tool's description, as agents will see it.")] = None,
-    input_schema: Annotated[dict | None, Field(description="The draft's input JSON Schema, e.g. {\"type\": \"object\", \"properties\": {...}}.")] = None,
-    confirm_token: Annotated[str | None, Field(description="Leave empty at first. To also check findability, pass the confirm_token the first call returned, with the same other arguments.")] = None,
-    check_id: Annotated[str | None, Field(description="Only to fetch a findability check an earlier call said was still running; other arguments are then ignored.")] = None,
+    server_id: Annotated[str, Field(description="Server id from list_servers.")],
+    name: Annotated[str, Field(description="Draft tool name; an existing name checks a revision.")],
+    description: Annotated[str | None, Field(description="Draft description.")] = None,
+    input_schema: Annotated[dict | None, Field(description="Draft input JSON Schema.")] = None,
+    confirm_token: Annotated[str | None, Field(description="To also check findability: the token the first call returned.")] = None,
+    check_id: Annotated[str | None, Field(description="Fetch a check that was still running.")] = None,
 ) -> str:
-    """I'm adding or changing a tool: will agents find it, or confuse it with my other tools?
+    """Adding or changing a tool? Lints a draft against the server's tools: clarity, token cost, overlaps.
 
-    Checks a draft tool definition against the server's existing tools, without calling the
-    server. Free and instant: lint (vague text, undocumented parameters, missing enums or
-    formats, duplicates of or overlaps with existing tools) and token cost. Findability
-    (which user requests would reach it, and which existing tool agents would pick instead)
-    uses a few credits, so it's two-step: the first call returns a confirm_token and the
-    estimate; show it to the user and, if they agree, call again with the token.
-    Findability needs a read-write API key.
+    Findability (would agents pick it, or another tool?) costs credits: ask the user before
+    calling again with the confirm_token. Needs a read-write key.
     """
     if check_id:
         return await _call_api(lambda client: client.get_tool_check(check_id))
     return await _call_api(lambda client: client.check_tool_definition(server_id, name, description, input_schema, confirm_token))
-
 
 def main():
     """Main entry point for the MCP server."""
