@@ -25,14 +25,14 @@ async def get_tool_insights(
             "data": data
         }
         
-        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(result, separators=(",", ":")))]
     
     except Exception as e:
         error_result = {
             "ok": False,
             "error": str(e)
         }
-        return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(error_result, separators=(",", ":")))]
 
 
 # Tool definition
