@@ -19,7 +19,7 @@ async def get_session(
                 "ok": False,
                 "error": "session_id is required"
             }
-            return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
+            return [TextContent(type="text", text=json.dumps(error_result, separators=(",", ":")))]
         
         # Get session details
         session = await client.get_session(session_id)
@@ -30,14 +30,14 @@ async def get_session(
             "data": session
         }
         
-        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(result, separators=(",", ":")))]
     
     except Exception as e:
         error_result = {
             "ok": False,
             "error": str(e)
         }
-        return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(error_result, separators=(",", ":")))]
 
 
 # Tool definition

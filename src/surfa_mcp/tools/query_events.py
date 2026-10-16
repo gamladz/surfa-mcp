@@ -20,7 +20,7 @@ async def query_events(
         end_date = arguments.get("end_date")
         kind = arguments.get("kind")
         status = arguments.get("status")
-        limit = arguments.get("limit", 100)
+        limit = arguments.get("limit", 20)
         
         # Query events
         events = await client.query_events(
@@ -43,14 +43,14 @@ async def query_events(
             }
         }
         
-        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(result, separators=(",", ":")))]
     
     except Exception as e:
         error_result = {
             "ok": False,
             "error": str(e)
         }
-        return [TextContent(type="text", text=json.dumps(error_result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(error_result, separators=(",", ":")))]
 
 
 # Tool definition

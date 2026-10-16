@@ -1,12 +1,21 @@
 """HTTP client for Surfa API."""
 
 import httpx
+from urllib.parse import quote
 from typing import Any, Dict, List, Optional
 from ..config.settings import Settings
 
 
 class SurfaAuthError(Exception):
     """Surfa rejected the API key."""
+
+
+class SurfaAPIError(Exception):
+    """Surfa answered with an error; the message says what to do."""
+
+    def __init__(self, message: str, status: int):
+        super().__init__(message)
+        self.status = status
 
 
 async def _check_auth(response: httpx.Response) -> None:
@@ -201,3 +210,43 @@ class SurfaAPIClient:
                 raise Exception(data.get("error", "Unknown error"))
             
             return data["data"]
+
+    # ---- Servers and findings (M2 task 12). Errors carry the API's own message.
+
+    async def _get_data(self, path: str, params: Optional[Dict[str, str]] = None) -> Any:
+        async with self._http() as client:
+            response = await client.get(f"{self.api_url}{path}", headers=self.headers, params=params)
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+        if response.status_code >= 400 or not (isinstance(body, dict) and body.get("ok")):
+            message = body.get("error") if isinstance(body, dict) else None
+            raise SurfaAPIError(message or f"Surfa answered HTTP {response.status_code}.", response.status_code)
+        return body["data"]
+
+    async def list_servers(self) -> Dict[str, Any]:
+        """The workspace's saved servers."""
+        return await self._get_data("/api/v1/mcp/servers")
+
+    async def list_findings(
+        self,
+        server_id: Optional[str] = None,
+        severity: Optional[str] = None,
+        tool: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """Ranked findings, optionally for one server, severity or tool."""
+        params = {"limit": str(limit), "offset": str(offset)}
+        if server_id:
+            params["server_id"] = server_id
+        if severity:
+            params["severity"] = severity
+        if tool:
+            params["tool"] = tool
+        return await self._get_data("/api/v1/mcp/findings", params)
+
+    async def get_finding(self, finding_id: str) -> Dict[str, Any]:
+        """One finding with evidence and fixes."""
+        return await self._get_data(f"/api/v1/mcp/findings/{quote(finding_id, safe='')}")

@@ -1,12 +1,18 @@
 """Surfa MCP Server - Main entry point."""
 
 import asyncio
+import json
 import os
+from typing import Annotated, Literal
+
+import httpx
+from pydantic import Field
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_headers
 from .config import get_settings
 from .api import SurfaAPIClient
+from .api.client import SurfaAPIError, SurfaAuthError
 from surfa_ingest import with_surfa
 from .tools import (
     get_analytics,
@@ -106,7 +112,7 @@ async def query_events_mcp(
     end_date: str | None = None,
     kind: str | None = None,
     status: str | None = None,
-    limit: int = 100,
+    limit: int = 20,
 ) -> str:
     """Query live traffic events with filters.
     
@@ -118,7 +124,7 @@ async def query_events_mcp(
         end_date: End date in ISO 8601 format
         kind: Event kind (tool, session, or runtime)
         status: Event status (success or error)
-        limit: Maximum number of results (default: 100)
+        limit: Maximum number of results (default: 20)
     
     Returns JSON with:
     - total: Number of events found
@@ -276,6 +282,62 @@ async def get_execution_metrics_mcp(execution_id: str) -> str:
     arguments = {"execution_id": execution_id}
     result = await get_execution_metrics(arguments, client)
     return result[0].text
+
+
+# ---- Servers and findings (M2 task 12, PLAN §3c). Errors are MCP errors (isError) with what to do next.
+
+async def _call_api(call):
+    """Run one API call; turn failures into MCP errors that say what to do."""
+    client = get_client()
+    try:
+        data = await call(client)
+    except (SurfaAuthError, SurfaAPIError) as error:
+        raise ToolError(str(error))
+    except httpx.HTTPError:
+        raise ToolError("Couldn't reach Surfa just now. Try again in a moment.")
+    return json.dumps(data, separators=(",", ":"))
+
+
+@mcp.tool()
+async def list_servers() -> str:
+    """List the MCP servers saved in your Surfa workspace.
+
+    Use this first to get server ids for list_findings. Each server has its endpoints
+    (with tool count and the latest audit), finding counts by severity, and a dashboard link.
+    """
+    return await _call_api(lambda client: client.list_servers())
+
+
+@mcp.tool()
+async def list_findings(
+    server_id: Annotated[str | None, Field(description="Only this server's findings; an id from list_servers. Omit for all servers.")] = None,
+    severity: Annotated[Literal["high", "medium", "low"] | None, Field(description="Only findings of this severity.")] = None,
+    tool: Annotated[str | None, Field(description="Only findings about this tool name of your server, e.g. 'search_orders'.")] = None,
+    limit: Annotated[int, Field(ge=1, le=100, description="How many findings to return (1-100).")] = 20,
+    offset: Annotated[int, Field(ge=0, description="Where to start; pass next_offset from the previous page.")] = 0,
+) -> str:
+    """What's wrong with my MCP server? Ranked problems Surfa found, most severe first.
+
+    Findings come from the server's latest Surfa audit: tools agents can't find or chain,
+    vague descriptions, undocumented parameters, heavy responses, failing test scenarios.
+    Starts with a summary (counts, servers not audited yet). Each finding has an id for
+    get_finding, which gives the evidence and any proposed or proven fix.
+    """
+    return await _call_api(lambda client: client.list_findings(server_id, severity, tool, limit, offset))
+
+
+@mcp.tool()
+async def get_finding(
+    finding_id: Annotated[str, Field(description="A finding id from list_findings, e.g. '3f2a…:0'.")],
+) -> str:
+    """Explain one finding: the evidence behind it and how to fix it.
+
+    Returns the problem, the suggestion, evidence from the audit (token costs, a sample
+    call, which user requests failed to find the tool, failing scenarios per model) and
+    any fixes Surfa wrote for it: before/after text, status (proposed or proven) and the
+    proof-by-rerun results. A code note says when the real fix is in code, not text.
+    """
+    return await _call_api(lambda client: client.get_finding(finding_id))
 
 
 def main():
