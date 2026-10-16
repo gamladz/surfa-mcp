@@ -340,6 +340,37 @@ async def get_finding(
     return await _call_api(lambda client: client.get_finding(finding_id))
 
 
+@mcp.tool()
+async def preview_description_change(
+    server_id: Annotated[str, Field(description="The server the tool belongs to; an id from list_servers.")],
+    tool: Annotated[str, Field(description="The name of the tool whose description you changed, as the server exposes it.")],
+    new_description: Annotated[str, Field(description="The full new description text for that tool.")],
+    confirm_token: Annotated[str | None, Field(description="Leave empty the first time. To run it, pass the confirm_token the first call returned, with the same other arguments.")] = None,
+) -> str:
+    """Is my rewritten tool description better? Prove it before you deploy.
+
+    Reruns the server's saved tests against the deployed server twice: as deployed, and
+    with your new description shown to the model instead (the server is never changed).
+    Spends credits, so it takes two calls: the first returns the plan, an estimate and a
+    confirm_token, and spends nothing; show the estimate to the user, and only if they
+    agree call again with the token. The second call starts the runs and returns a
+    preview_id for get_preview. Needs a read-write API key.
+    """
+    return await _call_api(lambda client: client.preview_description_change(server_id, tool, new_description, confirm_token))
+
+
+@mcp.tool()
+async def get_preview(
+    preview_id: Annotated[str, Field(description="The preview_id preview_description_change returned.")],
+) -> str:
+    """Before/after for a description preview: pass rate, tool calls, tokens and a verdict.
+
+    While the runs are going it returns progress (they usually take a few minutes; check
+    again in a minute). When done: proven, not_proven or worse, with per-test results.
+    """
+    return await _call_api(lambda client: client.get_preview(preview_id))
+
+
 def main():
     """Main entry point for the MCP server."""
     try:
