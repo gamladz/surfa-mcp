@@ -19,7 +19,15 @@ class SurfaAPIError(Exception):
 
 
 async def _check_auth(response: httpx.Response) -> None:
-    if response.status_code in (401, 403):
+    if response.status_code == 403:
+        # A valid key without the right access (e.g. read-only): Surfa's message says which key is needed.
+        await response.aread()
+        try:
+            message = response.json().get("error")
+        except ValueError:
+            message = None
+        raise SurfaAuthError(message or "This API key can't do that. Check its access in Surfa → Settings → API keys.")
+    if response.status_code == 401:
         raise SurfaAuthError(
             "Surfa didn't accept this API key (it may be revoked or mistyped). "
             "Check the key in your MCP client's config, or create a new one in Surfa → Settings → API keys."
@@ -216,6 +224,10 @@ class SurfaAPIClient:
     async def _get_data(self, path: str, params: Optional[Dict[str, str]] = None) -> Any:
         async with self._http() as client:
             response = await client.get(f"{self.api_url}{path}", headers=self.headers, params=params)
+        return self._data(response)
+
+    @staticmethod
+    def _data(response: httpx.Response) -> Any:
         try:
             body = response.json()
         except ValueError:
@@ -250,3 +262,21 @@ class SurfaAPIClient:
     async def get_finding(self, finding_id: str) -> Dict[str, Any]:
         """One finding with evidence and fixes."""
         return await self._get_data(f"/api/v1/mcp/findings/{quote(finding_id, safe='')}")
+
+    async def _post_data(self, path: str, body: Dict[str, Any]) -> Any:
+        async with self._http() as client:
+            response = await client.post(f"{self.api_url}{path}", headers=self.headers, json=body)
+        return self._data(response)
+
+    async def preview_description_change(
+        self, server_id: str, tool: str, new_description: str, confirm_token: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Estimate (no token) or start (token) a before/after rerun of a new description."""
+        body = {"server_id": server_id, "tool": tool, "new_description": new_description}
+        if confirm_token:
+            body["confirm_token"] = confirm_token
+        return await self._post_data("/api/v1/mcp/previews", body)
+
+    async def get_preview(self, preview_id: str) -> Dict[str, Any]:
+        """A preview's progress, then its before/after."""
+        return await self._get_data(f"/api/v1/mcp/previews/{quote(preview_id, safe='')}")
