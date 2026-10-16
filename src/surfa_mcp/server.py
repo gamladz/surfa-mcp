@@ -1,7 +1,10 @@
 """Surfa MCP Server - Main entry point."""
 
 import asyncio
+import os
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_http_headers
 from .config import get_settings
 from .api import SurfaAPIClient
 from surfa_ingest import with_surfa
@@ -27,15 +30,48 @@ from .tools import (
 # Initialize FastMCP server
 mcp = FastMCP("Surfa Analytics MCP")
 
-# Global client instance
+# stdio mode (one local user): one client with the SURFA_API_KEY env key.
 _client: SurfaAPIClient | None = None
+
+KEY_PREFIXES = ("sk_live_", "sk_test_")
+NO_KEY_MESSAGE = (
+    "This request has no Surfa API key. Add the header 'Authorization: Bearer sk_live_…' to this MCP server's "
+    "entry in your client's config (create a key in Surfa → Settings → API keys), then reconnect."
+)
+
+
+def http_mode() -> bool:
+    """HTTP transport (remote, multi-tenant) when PORT is set; stdio otherwise."""
+    return bool(os.getenv("PORT"))
+
+
+def request_api_key() -> str | None:
+    """The caller's key from this HTTP request's Authorization header (FastMCP 3: get_http_headers)."""
+    auth = get_http_headers(include={"authorization"}).get("authorization", "")
+    if auth[:7].lower() == "bearer ":
+        return auth[7:].strip() or None
+    return None
 
 
 def get_client() -> SurfaAPIClient:
-    """Get or create the API client."""
+    """The API client for this request's workspace.
+
+    HTTP mode: built per request from the caller's own key (never the server's env key),
+    so each caller only ever sees their own workspace. stdio mode: the SURFA_API_KEY env key.
+    Raises ToolError (an MCP error result) when there is no usable key.
+    """
     global _client
+    settings = get_settings()
+    if http_mode():
+        key = request_api_key()
+        if not key:
+            raise ToolError(NO_KEY_MESSAGE)
+        if not key.startswith(KEY_PREFIXES):
+            raise ToolError("That isn't a Surfa API key (they start with sk_live_ or sk_test_). Check the Authorization header in your MCP config.")
+        return SurfaAPIClient(settings, api_key=key)
     if _client is None:
-        settings = get_settings()
+        if not settings.surfa_api_key:
+            raise ToolError("Set SURFA_API_KEY to your Surfa API key (Surfa → Settings → API keys) and restart the server.")
         _client = SurfaAPIClient(settings)
     return _client
 
@@ -251,10 +287,12 @@ def main():
         print(f"   API URL: {settings.surfa_api_url}")
         
         # Show mode
-        if settings.surfa_api_key:
-            print(f"   🔑 Mode: Single-tenant (API key: {settings.surfa_api_key[:20]}...)")
+        if http_mode():
+            print(f"   🔑 Mode: Multi-tenant (each request's own API key; SURFA_API_KEY is ignored)")
+        elif settings.surfa_api_key:
+            print(f"   🔑 Mode: Single user, stdio (API key: {settings.surfa_api_key[:12]}...)")
         else:
-            print(f"   🔑 Mode: Multi-tenant (API key from client)")
+            print(f"   🔑 Mode: stdio without SURFA_API_KEY (tool calls will ask for one)")
         
         # Dogfooding: send this server's own tool calls to Surfa
         if settings.surfa_ingest_key:
@@ -266,7 +304,6 @@ def main():
         # Run the server
         # Use HTTP transport if PORT is set (for remote deployment)
         # Otherwise use stdio (for local/Claude Desktop)
-        import os
         port = os.getenv("PORT")
         
         if port:
