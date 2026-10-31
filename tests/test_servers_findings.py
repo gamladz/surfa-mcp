@@ -36,6 +36,8 @@ def api(monkeypatch):
             if request.url.params.get("severity") == "urgent":
                 return httpx.Response(400, json={"ok": False, "error": "severity must be one of: high, medium, low."})
             return httpx.Response(200, json={"ok": True, "data": {"summary": {"total": 1}, "findings": [{"id": FINDING_ID}], "next_offset": None}})
+        if path.startswith("/api/v1/mcp/analytics/sessions/"):
+            return httpx.Response(404, json={"ok": False, "error": "No live session with that id. Use a session_id (or execution_id) from query_events_mcp."})
         if path.startswith("/api/v1/mcp/findings/"):
             if path.endswith(":0"):
                 return httpx.Response(200, json={"ok": True, "data": {"id": FINDING_ID, "rule": "broken_chain"}})
@@ -75,6 +77,19 @@ def test_list_findings_passes_filters(api):
     assert json.loads(text(result))["findings"] == [{"id": FINDING_ID}]
     params = dict(api[-1].url.params)
     assert params == {"server_id": "s1", "severity": "high", "tool": "get_session", "limit": "5", "offset": "10"}
+
+
+def test_list_findings_status_filter(api):
+    call("list_findings", {"status": "resolved"})
+    assert dict(api[-1].url.params)["status"] == "resolved"
+    result = call("list_findings", {"status": "closed"})
+    assert result["isError"] is True
+
+
+def test_get_session_404_keeps_surfas_message(api):
+    result = call("get_session_mcp", {"session_id": "missing"})
+    assert json.loads(text(result)) == {"ok": False, "error": "No live session with that id. Use a session_id (or execution_id) from query_events_mcp."}
+    assert api[-1].url.path == "/api/v1/mcp/analytics/sessions/missing"
 
 
 def test_list_findings_defaults(api):
