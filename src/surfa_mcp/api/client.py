@@ -109,19 +109,8 @@ class SurfaAPIClient:
             return data["data"]
     
     async def get_session(self, session_id: str) -> Dict[str, Any]:
-        """Get session details."""
-        async with self._http() as client:
-            response = await client.get(
-                f"{self.api_url}/api/v1/mcp/analytics/sessions/{session_id}",
-                headers=self.headers,
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            if not data.get("ok"):
-                raise Exception(data.get("error", "Unknown error"))
-            
-            return data["data"]
+        """Get session details (a session id or an execution id); a 404 keeps Surfa's message."""
+        return await self._get_data(f"/api/v1/mcp/analytics/sessions/{quote(session_id, safe='')}")
     
     async def find_redundant_executions(
         self,
@@ -248,8 +237,9 @@ class SurfaAPIClient:
         tool: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
+        status: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Ranked findings, optionally for one server, severity or tool."""
+        """Ranked findings, optionally for one server, severity, tool or status (Surfa's default: open)."""
         params = {"limit": str(limit), "offset": str(offset)}
         if server_id:
             params["server_id"] = server_id
@@ -257,6 +247,8 @@ class SurfaAPIClient:
             params["severity"] = severity
         if tool:
             params["tool"] = tool
+        if status:
+            params["status"] = status
         return await self._get_data("/api/v1/mcp/findings", params)
 
     async def get_finding(self, finding_id: str) -> Dict[str, Any]:

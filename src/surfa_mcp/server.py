@@ -128,7 +128,7 @@ async def query_events_mcp(
     
     Returns JSON with:
     - total: Number of events found
-    - events: Array of event objects
+    - events: Array of event objects, each with session_id and execution_id for get_session_mcp
     """
     client = get_client()
     arguments = {
@@ -179,11 +179,11 @@ async def get_session_mcp(session_id: str) -> str:
     """Get detailed information about a specific session.
     
     Args:
-        session_id: The session ID to retrieve details for
+        session_id: An event's session_id from query_events_mcp (its execution_id also works)
     
     Returns JSON with:
     - session_id: The session identifier
-    - execution_id: Associated execution ID
+    - execution_id: First execution in the session (execution_ids lists all)
     - status: Session status
     - started_at: Start timestamp
     - completed_at: Completion timestamp
@@ -311,9 +311,10 @@ async def list_findings(
     tool: Annotated[str | None, Field(description="Only findings about this tool.")] = None,
     limit: Annotated[int, Field(ge=1, le=100, description="Page size.")] = 20,
     offset: Annotated[int, Field(ge=0, description="next_offset from the previous page.")] = 0,
+    status: Annotated[Literal["open", "resolved", "verified", "dismissed", "all"] | None, Field(description="Default open.")] = None,
 ) -> str:
-    """What's wrong with my MCP server? Problems from its latest Surfa audit, most severe first (ids for get_finding)."""
-    return await _call_api(lambda client: client.list_findings(server_id, severity, tool, limit, offset))
+    """What's wrong with my MCP server? Problems Surfa found in audits and live traffic, most severe first (ids for get_finding)."""
+    return await _call_api(lambda client: client.list_findings(server_id, severity, tool, limit, offset, status))
 
 
 @mcp.tool()

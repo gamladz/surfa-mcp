@@ -160,7 +160,7 @@ Get detailed session information.
 ```
 
 **Parameters:**
-- `session_id` - The session ID to retrieve
+- `session_id` - A `session_id` from `query_events` (an `execution_id` also works)
 
 ---
 
