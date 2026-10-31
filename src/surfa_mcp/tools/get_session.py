@@ -49,7 +49,7 @@ get_session_tool = Tool(
         "properties": {
             "session_id": {
                 "type": "string",
-                "description": "The session ID to retrieve details for",
+                "description": "An event's session_id from query_events (its execution_id also works)",
             },
         },
         "required": ["session_id"],
